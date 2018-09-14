@@ -32,22 +32,27 @@ kmeans = KMeans(n_clusters=k).fit(X)
 XX = kmeans.transform(X)
 
 print(kmeans.labels_.shape)
+print(type(kmeans.labels_))
 print(kmeans.labels_)
 print(kmeans.cluster_centers_.shape)
-#print(kmeans.cluster_centers_)
+print('===================')
+print(kmeans.cluster_centers_)
+print('===================')
 print('inertia: ', kmeans.inertia_)
 print(XX)
 
+#a = list(range(len(kmeans.labels_)))
+#print(a[kmeans.labels_ == 0])
+
+article_titles = np.array(news_corpus.all_titles)
 for cluster in range(k):
-    news_in_cluster = (kmeans.labels_ == cluster)
     count = 0
     print()
     print('-----------------------------------')
     print('news group: ', cluster)
-    for ok, title in zip(news_in_cluster, news_corpus.all_titles):
-        if ok:
-            print(title)
-            print()
-            count += 1
-            if count >= 10:
-                break
+    for title in article_titles[kmeans.labels_ == cluster]:
+        print(title)
+        print()
+        count += 1
+        if count >= 20:
+            break
