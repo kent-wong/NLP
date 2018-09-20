@@ -6,6 +6,10 @@ import pandas as pd
 import jieba
 import codecs
 import os
+import sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
 
 fname = os.path.join('all_corpus', 'xiecheng_hotel_comments01.csv')
 print(fname)
@@ -13,16 +17,19 @@ print(fname)
 df = pd.read_csv(fname, sep=',', 
         names=['hotel_name', 'user_name', 'score', 'comment', 'time', 'scrape_time'], 
         skiprows=1)
-#df = pd.read_csv(fname, sep=',')
-#print(df.head())
-print()
+
+fname = os.path.join('all_corpus', 'xiecheng_hotel_comments02.csv')
+df2 = pd.read_csv(fname, sep=',', 
+        names=['hotel_name', 'user_name', 'score', 'comment', 'time', 'scrape_time'], 
+        skiprows=1)
+
+df = pd.concat([df, df2], ignore_index=True)
 
 print('\n=====================')
 del df['hotel_name']
 del df['user_name']
 del df['time']
 del df['scrape_time']
-#df.hotel_name = 'hotel_001'
 
 # get rid of 'NaN'
 #df.score[df.score.isnull()] = 0
@@ -55,3 +62,16 @@ def to_comment_vector(comment):
 df['vec'] = df.comment.apply(to_comment_vector)
 df.dropna(inplace=True)
 print(df)
+
+X = np.array(df.vec.tolist())
+y = np.array(df.score.tolist())
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.25)
+
+forest = RandomForestClassifier(n_estimators=100, random_state=42)
+forest = forest.fit(X_train, y_train)
+a = confusion_matrix(y_train, forest.predict(X_train))
+print(a)
+
+print("test result:")
+a = confusion_matrix(y_test, forest.predict(X_test))
+print(a)
