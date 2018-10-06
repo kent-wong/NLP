@@ -26,17 +26,59 @@ class BIDAF(nn.Module):
         self.layer3_query_lstm = nn.LSTM(EMBED_SIZE, self.d, bidirectional=True)
         self.layer3_query_hidden = self.init_hidden()
 
+        # layer 4: attention flow layer
+        self.layer4_w_s = nn.Linear(self.d*6, 1)
+
     def init_hidden(self):
         return (torch.zeros(2, 1, self.d), torch.zeros(2, 1, self.d))
 
-    # input size: N * EMBED_SIZE
-    def forward(self, context_word_vec, query_word_vec=None):
-        context_wv = context_word_vec.view(context_word_vec.size(0), 1, -1)
-        print(context_wv)
+    # h size: 2d
+    # U size: 2d * J
+    # return: J * 6d
+    def alpha(self, h, U):
+        J = U.size(1)
+        h = h.unsqueeze(0)
+        H_matrix = [h] * J
+        H_matrix = torch.cat(H_matrix, dim=0)
+        print(H_matrix)
+        print(U.t())
+        print(h*U.t())
 
-        out, self.layer3_context_hidden = self.layer3_context_lstm(context_wv, self.layer3_context_hidden)
-        print('out:\n', out)
-        print('hidden:\n', self.layer3_context_hidden)
+        # size: J * 6d
+        concated_matrix = torch.cat([H_matrix, U.t(), h*U.t()], dim=1)
+        print(concated_matrix)
+
+        out = self.layer4_w_s(concated_matrix)
+        print(out.squeeze())
+
+    # input size: S * EMBED_SIZE
+    def forward(self, context_word_vec, query_word_vec):
+        T = context_word_vec.size(0)
+        context_wv = context_word_vec.view(T, 1, -1)
+        #print(context_wv)
+
+        out, hidden = self.layer3_context_lstm(context_wv, self.init_hidden())
+        #print('out:\n', out)
+        #print('hidden:\n', self.layer3_context_hidden)
+
+        # H size: 2d * T
+        H = out.view(T, -1).t()
+        print('H:\n', H)
+
+        J = query_word_vec.size(0)
+        context_wv = query_word_vec.view(J, 1, -1)
+        #print(context_wv)
+
+        out, hidden = self.layer3_query_lstm(context_wv, self.init_hidden())
+        #print('out:\n', out)
+
+        # U size: 2d * J
+        U = out.view(J, -1).t()
+        print('U:\n', U)
+
+
+        # calculating similarity matrix 'S'
+        self.alpha(H[:, 0], U)
 
 
 
@@ -45,7 +87,8 @@ model = BIDAF()
 print(model)
 
 a_context = torch.randn(5, EMBED_SIZE)
+a_query = torch.randn(3, EMBED_SIZE)
 print(a_context)
 print(a_context.size())
-model(a_context)
+model(a_context, a_query)
 
