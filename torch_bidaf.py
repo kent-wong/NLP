@@ -5,6 +5,8 @@ import torch.optim as optim
 
 import numpy as np
 
+torch.manual_seed(1)
+
 #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #print(device)
 
@@ -34,7 +36,7 @@ class BIDAF(nn.Module):
 
     # h size: 2d
     # U size: 2d * J
-    # return: J * 6d
+    # return size: 1 * J
     def alpha(self, h, U):
         J = U.size(1)
         h = h.unsqueeze(0)
@@ -48,8 +50,11 @@ class BIDAF(nn.Module):
         concated_matrix = torch.cat([H_matrix, U.t(), h*U.t()], dim=1)
         print(concated_matrix)
 
+        # out size: J * 1
         out = self.layer4_w_s(concated_matrix)
-        print(out.squeeze())
+        print(out.t())
+
+        return out.t()
 
     # input size: S * EMBED_SIZE
     def forward(self, context_word_vec, query_word_vec):
@@ -78,7 +83,43 @@ class BIDAF(nn.Module):
 
 
         # calculating similarity matrix 'S'
-        self.alpha(H[:, 0], U)
+        #for t in len(T):
+        #self.alpha(H[:, 0], U)
+        S_rows = [self.alpha(H[:, t], U) for t in range(T)]
+        print(S_rows)
+        S = torch.cat(S_rows, dim=0)
+        print('S:\n', S)
+
+        # 计算Context_to_query Attention, size: 2d * T 
+        S_softmaxed = F.softmax(S, dim=1)
+        print(S_softmaxed)
+        UU = torch.mm(S_softmaxed, U.t()).t()
+        print('UU:\n', UU)
+
+        # 计算Query_to_context Attention
+        b, _ = torch.max(S, dim=1, keepdim=True)
+        print(b)
+        b = F.softmax(b, dim=0)
+        print(b)
+        hh = torch.mm(H, b)
+        print(hh)
+        HH = torch.cat([hh]*T, dim=1)
+        print(HH)
+        print('sizes:')
+        print(H.size())
+        print(UU.size())
+        print(HH.size())
+
+        G = torch.cat([H, UU, H*UU, H*HH], dim=0)
+        print(G)
+        print(G.size())
+
+
+        ## 计算Modeling Layer
+
+
+
+
 
 
 
