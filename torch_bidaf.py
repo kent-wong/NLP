@@ -4,16 +4,15 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import numpy as np
+import webqa
 
 torch.manual_seed(1)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
-EMBED_SIZE = 3
-HIDDEN_SIZE = 6
-CONTEXT_SIZE = 22
-QUERY_SIZE = 10
+EMBED_SIZE = 256
+HIDDEN_SIZE = 256
 
 d = HIDDEN_SIZE
 
@@ -151,18 +150,19 @@ print(model)
 loss_function = nn.NLLLoss()
 optimizer = optim.SGD(model.parameters(), lr=0.1)
 
-EPOCHS = 10
+EPOCHS = 1
 for epoch in range(EPOCHS):
-    a_context = torch.randn(CONTEXT_SIZE, EMBED_SIZE, device=device)
-    a_query = torch.randn(3, EMBED_SIZE, device=device)
+    for query, context, target in webqa.load_qa():
+        query = query.view(query.size(0), 1, -1).to(device)
+        context = context.view(context.size(0), 1, -1).to(device)
+        target = target.to(device)
 
-    optimizer.zero_grad()
-    out = model(a_context, a_query)
-    #print('model output:\n', out)
+        optimizer.zero_grad()
+        out = model(context, query)
+        #print('model output:\n', out)
 
-    target = torch.tensor([1, 1], device=device)
-    loss = loss_function(out, target)
-    print('loss:\n', loss)
+        loss = loss_function(out, target)
+        print('loss:\n', loss)
 
-    loss.backward()
-    optimizer.step()
+        loss.backward()
+        optimizer.step()
