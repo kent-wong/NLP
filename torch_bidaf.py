@@ -7,8 +7,8 @@ import numpy as np
 
 torch.manual_seed(1)
 
-#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#print(device)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 EMBED_SIZE = 3
 HIDDEN_SIZE = 6
@@ -31,8 +31,16 @@ class BIDAF(nn.Module):
         # layer 4: attention flow layer
         self.layer4_w_s = nn.Linear(self.d*6, 1)
 
-    def init_hidden(self):
-        return (torch.zeros(2, 1, self.d), torch.zeros(2, 1, self.d))
+        # layer 5: modeling layer
+        self.modeling_layer_lstm = nn.LSTM(self.d*8, self.d, num_layers=2, bidirectional=True)
+        
+        # layer 6: output layer
+        self.output_layer_w_p1 = nn.Linear(self.d*10, 1)
+        self.output_layer_w_p2 = nn.Linear(self.d*10, 1)
+        self.output_layer_lstm = nn.LSTM(self.d*2, self.d, bidirectional=True)
+
+    def init_hidden(self, dim0=1):
+        return (torch.zeros(dim0, 1, self.d, device=device), torch.zeros(dim0, 1, self.d, device=device))
 
     # h size: 2d
     # U size: 2d * J
@@ -42,17 +50,17 @@ class BIDAF(nn.Module):
         h = h.unsqueeze(0)
         H_matrix = [h] * J
         H_matrix = torch.cat(H_matrix, dim=0)
-        print(H_matrix)
-        print(U.t())
-        print(h*U.t())
+        #print(H_matrix)
+        #print(U.t())
+        #print(h*U.t())
 
         # size: J * 6d
         concated_matrix = torch.cat([H_matrix, U.t(), h*U.t()], dim=1)
-        print(concated_matrix)
+        #print(concated_matrix)
 
         # out size: J * 1
         out = self.layer4_w_s(concated_matrix)
-        print(out.t())
+        #print(out.t())
 
         return out.t()
 
@@ -62,74 +70,99 @@ class BIDAF(nn.Module):
         context_wv = context_word_vec.view(T, 1, -1)
         #print(context_wv)
 
-        out, hidden = self.layer3_context_lstm(context_wv, self.init_hidden())
+        out, hidden = self.layer3_context_lstm(context_wv, self.init_hidden(2))
         #print('out:\n', out)
         #print('hidden:\n', self.layer3_context_hidden)
 
         # H size: 2d * T
         H = out.view(T, -1).t()
-        print('H:\n', H)
+        #print('H:\n', H)
 
         J = query_word_vec.size(0)
         context_wv = query_word_vec.view(J, 1, -1)
         #print(context_wv)
 
-        out, hidden = self.layer3_query_lstm(context_wv, self.init_hidden())
+        out, hidden = self.layer3_query_lstm(context_wv, self.init_hidden(2))
         #print('out:\n', out)
 
         # U size: 2d * J
         U = out.view(J, -1).t()
-        print('U:\n', U)
+        #print('U:\n', U)
 
 
         # calculating similarity matrix 'S'
         #for t in len(T):
         #self.alpha(H[:, 0], U)
         S_rows = [self.alpha(H[:, t], U) for t in range(T)]
-        print(S_rows)
         S = torch.cat(S_rows, dim=0)
-        print('S:\n', S)
+        #print('S:\n', S)
 
         # 计算Context_to_query Attention, size: 2d * T 
         S_softmaxed = F.softmax(S, dim=1)
-        print(S_softmaxed)
         UU = torch.mm(S_softmaxed, U.t()).t()
-        print('UU:\n', UU)
+        #print('UU:\n', UU)
 
         # 计算Query_to_context Attention
         b, _ = torch.max(S, dim=1, keepdim=True)
-        print(b)
         b = F.softmax(b, dim=0)
-        print(b)
         hh = torch.mm(H, b)
-        print(hh)
         HH = torch.cat([hh]*T, dim=1)
-        print(HH)
-        print('sizes:')
-        print(H.size())
-        print(UU.size())
-        print(HH.size())
 
         G = torch.cat([H, UU, H*UU, H*HH], dim=0)
-        print(G)
-        print(G.size())
+        #print(G)
+        #print(G.size())
 
 
         ## 计算Modeling Layer
+        M, hidden = self.modeling_layer_lstm(G.t().view(T, 1, -1), self.init_hidden(4))
 
 
+        ## 计算Output Layer
+        # 计算答案的起始位置概率分布
+        out_matrix = torch.cat([G, M.squeeze().t()], dim=0)
+        #print(out_matrix)
+        p1 = self.output_layer_w_p1(out_matrix.t())
+        p1 = p1.t()
+        #print(p1)
+        p1_proba = F.log_softmax(p1, dim=1)
+        #print(p1_proba)
+
+        # 计算答案的结束位置概率分布
+        M2, hidden = self.output_layer_lstm(M, self.init_hidden(2))
+        out_matrix = torch.cat([G, M2.squeeze().t()], dim=0)
+        p2 = self.output_layer_w_p2(out_matrix.t())
+        p2 = p2.t()
+        #print(p2)
+        p2_proba = F.log_softmax(p2, dim=1)
+        #print(p2_proba)
+
+        out = torch.cat([p1_proba, p2_proba], dim=0)
+        #print(out)
+        return out
 
 
-
-
-
-### test test
+## train
 model = BIDAF()
 print(model)
+if torch.cuda.is_available():
+    model.cuda()
+print(model)
 
-a_context = torch.randn(5, EMBED_SIZE)
-a_query = torch.randn(3, EMBED_SIZE)
-print(a_context)
-print(a_context.size())
-model(a_context, a_query)
+loss_function = nn.NLLLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.1)
 
+EPOCHS = 10
+for epoch in range(EPOCHS):
+    a_context = torch.randn(CONTEXT_SIZE, EMBED_SIZE, device=device)
+    a_query = torch.randn(3, EMBED_SIZE, device=device)
+
+    optimizer.zero_grad()
+    out = model(a_context, a_query)
+    #print('model output:\n', out)
+
+    target = torch.tensor([1, 1], device=device)
+    loss = loss_function(out, target)
+    print('loss:\n', loss)
+
+    loss.backward()
+    optimizer.step()
