@@ -3,23 +3,26 @@ import re
 import jieba
 
 class Dataset:
+    def __init__(self):
+        # 数据集, 每个句子占用一个列表元素
+        # 一个列表元素的格式为('原始句子', '参考标注', '预测结果')
+        # '预测结果'可以为空
+        self._data = []
+
+    # function:
+    #       从文件读入数据集，每行一个句子
     # params:
     #       filename - 数据文件名
     #       already_cut - 是否已经进行了分词
     #       encoding - 数据文件编码
-    def __init__(self, filename, already_cut=True, encoding='utf-8'):
-        # 数据集, 每个句子占用一个列表元素
-        # 一个列表元素的格式为('原始句子', '对应的标注')
-        # 标注方法：使用4标注BMES
-        self._data = []
-
+    def read(self, filename, already_cut=True, encoding='utf-8'):
         with open(filename, 'r', encoding=encoding) as f:
             print('filename:', f.name)
 
             for line in f.readlines():
                 line = line.strip()
                 if already_cut != True: #如果不是训练集，将句子直接保存到列表
-                    self._data.append((line, None))
+                    self._data.append((line, None, None))
                     continue
 
                 # 以下为对训练集的处理，生成的标注序列和对应的句子一样长
@@ -32,7 +35,7 @@ class Dataset:
                     else:
                         label.append('B' + 'M'*(s-2) + 'E')
 
-                self._data.append((''.join(sentence), ''.join(label)))
+                self._data.append((''.join(sentence), ''.join(label), None))
 
     def data(self):
         for sent in self._data:
@@ -64,7 +67,7 @@ class Dataset:
             start = idx
             end = idx + 1
 
-        for sent, label in self._data[start: end]:
+        for sent, label, _ in self._data[start: end]:
             tag_str = ''
             char_str = ''
 
@@ -80,7 +83,7 @@ class Dataset:
 
     def output_crfpp_format(self, filename=None):
         lines = []    
-        for sent, label in self._data:
+        for sent, label, _ in self._data:
             for char, tag in zip(sent, label):
                 line = '{}    {}'.format(char, tag)
                 lines.append(line) 
@@ -106,11 +109,13 @@ class Dataset:
                     pred_str = ''
                     continue
 
-                char, gold, pred = line.split():
+                char, gold, pred = line.split()
                 sent_str += char
                 gold_str += gold
                 pred_str += pred
 
+            if sent_str != '':
+                self._data.append((sent_str, gold_str, pred_str))
 
 
 
@@ -120,7 +125,7 @@ class Dataset:
 #    print(sent)
 
 
-a = Dataset('pku_training.utf8')
+#a = Dataset('pku_training.utf8')
 for i in range(5):
     print()
     #print(a[i])
@@ -132,9 +137,10 @@ for i in range(5):
 
 #a.pprint(0)
 
-test_data = Dataset('./sighan_corpora/gold/pku_test_gold.utf8')
+test_data = Dataset()
+test_data = read('./sighan_corpora/gold/pku_test_gold.utf8')
 test_data.pprint(0)
 test_data.pprint(1)
 test_data.pprint(2)
 print('len:', len(test_data))
-test_data.output_crfpp_format('pku_test.txt')
+#test_data.output_crfpp_format('pku_test.txt')
