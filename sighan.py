@@ -37,6 +37,22 @@ class Dataset:
 
                 self._data.append((''.join(sentence), ''.join(label), None))
 
+    def output(self, filename, predict=True):
+        with open(filename, 'w') as f:
+            for sent, gold, pred in self._data:
+                cutby = pred
+                if predict != True:
+                    cutby = gold
+
+                char_str = ''
+                for char, tag in zip(sent, cutby):
+                    char_str += char
+                    if tag == 'E' or tag == 'S':
+                        char_str += ' '
+
+                f.write(char_str + '\n')
+
+
     def data(self):
         for sent in self._data:
             yield sent
@@ -138,9 +154,11 @@ for i in range(5):
 #a.pprint(0)
 
 test_data = Dataset()
-test_data = read('./sighan_corpora/gold/pku_test_gold.utf8')
+#test_data.read('./sighan_corpora/gold/pku_test_gold.utf8')
+test_data.read_crfpp_result('crf_out.txt')
 test_data.pprint(0)
 test_data.pprint(1)
 test_data.pprint(2)
 print('len:', len(test_data))
 #test_data.output_crfpp_format('pku_test.txt')
+test_data.output('pku_predict_result.txt')
