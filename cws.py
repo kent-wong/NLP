@@ -14,6 +14,8 @@ class Weights(dict): # 管理平均感知器的权重
         self._ld=0.0001
         self._p=0.999
         self._log_p=math.log(self._p)
+        self._words = dict()
+        self._rwords = dict()
 
 
         self._acc=dict()
@@ -94,19 +96,89 @@ class Weights(dict): # 管理平均感知器的权重
         if self._last_step==None : return self._values[key]
         return self._new_value(key)
 
+    # 融入词典
+    def merge_dict(self, filename):
+        with open(filename, 'r', encoding='utf-8') as f:
+            for word in f.readlines():
+                word = word.strip()
+                if word == '':
+                    continue
+
+                # 正向
+                make_word = ''
+                for w in word:
+                    make_word += w
+                    if make_word not in self._words:
+                        self._words[make_word] = 0
+                self._words[word] = 1
+
+                # 反向
+                make_word = ''
+                for w in reversed(word):
+                    make_word = w + make_word
+                    if make_word not in self._rwords:
+                        self._rwords[make_word] = 0
+                self._rwords[word] = 1
+                
+    def max_match(self, sub):
+        matched = 0
+        for i in range(len(sub)):
+            w = sub[:i+1]
+            if w in self._words:
+                if self._words[w] == 1:
+                    matched = len(w)
+            else:
+                break
+        return matched
+
+    def reverse_max_match(self, sub):
+        matched = 0
+        make_word = ''
+        for w in reversed(sub):
+            make_word = w + make_word
+            if make_word in self._rwords:
+                if self._rwords[make_word] == 1:
+                    matched = len(make_word)
+            else:
+                break
+        return matched
+
+
+
+
 class CWS :
-    def __init__(self,penalty='no'):
+    def __init__(self,penalty='no', words_list=None):
         self.weights=Weights(penalty=penalty)
+        # 载入词典
+        if words_list:
+            self.weights.merge_dict(words_list)
+            print(self.weights._words)
+            #matched = self.weights.max_match('前景是光明的')
+            #print(matched)
+
 
     def gen_features(self,x): # 枚举得到每个字的特征向量
         for i in range(len(x)):
+            #left3=x[i-3] if i-3 >=0 else '#'
             left2=x[i-2] if i-2 >=0 else '#'
             left1=x[i-1] if i-1 >=0 else '#'
             mid=x[i]
             right1=x[i+1] if i+1<len(x) else '#'
             right2=x[i+2] if i+2<len(x) else '#'
+            #right3=x[i+3] if i+3<len(x) else '#'
+            #triple = left1 + mid + right1
             features=['1'+mid,'2'+left1,'3'+right1,
                     '4'+left2+left1,'5'+left1+mid,'6'+mid+right1,'7'+right1+right2]
+
+            matched = self.weights.max_match(x[i:])
+            if matched > 1:
+                features.append('8B_' + mid + str(matched))
+                #print(matched, x[i: i+matched])
+
+            #r_matched = self.weights.reverse_max_match(x[:i+1])
+            #if r_matched > 1:
+                #features.append('8E_' + str(r_matched))
+                #print(r_matched, x[i-r_matched: i+1])
             yield features
 
     def update(self,x,y,delta): # 更新权重
@@ -181,8 +253,9 @@ class Evaluator : # 评价
         precision=self.cor/self.rst if self.rst else 0
         recall=self.cor/self.std if self.std else 0
         f1=2*precision*recall/(precision+recall) if precision+recall!=0 else 0
-        print("历时: %.2f秒 答案词数: %i 结果词数: %i 正确词数: %i F值: %.4f"
-                %(time.time()-self.start_time,self.std,self.rst,self.cor,f1))
+        print("历时: %.2f秒 答案词数: %i 结果词数: %i 正确词数: %i  准确率：%.4f 召回率：%.4f F值: %.4f"
+                %(time.time()-self.start_time,self.std,self.rst,self.cor, precision, recall, f1))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
@@ -194,14 +267,17 @@ if __name__ == '__main__':
     parser.add_argument('--penalty',type=str, default='no')
     parser.add_argument('--result',type=str, help='')
     parser.add_argument('--model',type=str, help='')
+    parser.add_argument('--dict',type=str, help='')
     args = parser.parse_args()
 
     # 训练
     if args.train: 
-        cws=CWS(penalty=args.penalty)
+        cws=CWS(penalty=args.penalty, words_list=args.dict)
         for i in range(args.iteration):
-            print('第 %i 次迭代'%(i+1),end=' '),sys.stdout.flush()
+            print('\n**第 %i 次迭代:'%(i+1))
+            #sys.stdout.flush()
             evaluator=Evaluator()
+            lines = 0
             for sent in open(args.train, encoding='utf-8'):
                 sent = sent.strip()
                 if sent == '':
@@ -215,26 +291,33 @@ if __name__ == '__main__':
                     cws.update(x,z,-1)
 
                 # wk_debug
-                if cws.weights._step % 1000 == 0:
-                    print('trained sentences {}'.format(cws.weights._step))
+                lines += 1
+                if lines % 2000 == 0:
+                    print('trained sentences {}'.format(lines))
 
             evaluator.report()
             cws.weights.update_all()
-            cws.weights.average()
+            #cws.weights.average()
+
             if args.dev :
                 evaluator=Evaluator()
-                for l in open(args.dev, encoding='utf-8') :
-                    x,y=load_example(l.split())
+                for sent in open(args.dev, encoding='utf-8') :
+                    sent = sent.strip()
+                    if sent == '':
+                        continue
+                    x,y=load_example(sent.split())
                     z=cws.decode(x)
                     evaluator(dump_example(x,y),dump_example(x,z))
                 evaluator.report()
             #cws.weights.unaverage()
 
-        #cws.weights.average()
+        cws.weights.average() # 最后再进行平均
         cws.weights.save(args.model)
+
+
     # 使用有正确答案的语料测试
     if args.test : 
-        cws=CWS()
+        cws=CWS(words_list=args.dict)
         cws.weights.load(args.model)
         evaluator=Evaluator()
         for sent in open(args.test, encoding='utf-8') :
@@ -247,11 +330,14 @@ if __name__ == '__main__':
         evaluator.report()
     # 对未分词的句子输出分词结果
     if args.model and (not args.train and not args.test) : 
-        cws=CWS()
+        cws=CWS(words_list=args.dict)
         cws.weights.load(args.model)
         instream=open(args.predict, encoding='utf-8') if args.predict else sys.stdin
         outstream=open(args.result,'w', encoding='utf-8') if args.result else sys.stdout
-        for l in instream:
-            x,y=load_example(l.split())
+        for sent in instream:
+            sent = sent.strip()
+            if sent == '':
+                continue
+            x,y=load_example(sent.split())
             z=cws.decode(x)
             print(' '.join(dump_example(x,z)),file=outstream)
