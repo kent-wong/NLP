@@ -170,14 +170,21 @@ class CWS :
             features=['1'+mid,'2'+left1,'3'+right1,
                     '4'+left2+left1,'5'+left1+mid,'6'+mid+right1,'7'+right1+right2]
 
-            matched = self.weights.max_match(x[i:])
-            if matched > 1:
-                features.append('8B_' + mid + str(matched))
+            if mid+right1 in self.weights._words:
+                features.append('8B_' + mid + right1)
+
+            if mid+left1 in self.weights._rwords:
+                features.append('8E_' + mid + left1)
+
+            #matched = self.weights.max_match(x[i:])
+            #if matched > 1:
+                #features.append('8B_' + mid + str(matched))
+                #features.append('8B_' + mid + right1 + str(matched))
                 #print(matched, x[i: i+matched])
 
-            r_matched = self.weights.reverse_max_match(x[:i+1])
-            if r_matched > 1:
-                features.append('8E_' + mid + str(r_matched))
+            #r_matched = self.weights.reverse_max_match(x[:i+1])
+            #if r_matched > 1:
+                #features.append('8E_' + mid + str(r_matched))
                 #print(r_matched, x[i-r_matched+1: i+1])
 
             yield features
@@ -191,17 +198,15 @@ class CWS :
 
     def decode(self,x): # 类似隐马模型的动态规划解码算法
         # 类似隐马模型中的转移概率
-        transitions=[ [self.weights.get_value(str(i)+':'+str(j),0) for j in range(4)]
+        transitions = [ [self.weights.get_value(str(i)+':'+str(j),0) for j in range(4)]
                 for i in range(4) ]
+
         # 类似隐马模型中的发射概率
-        emissions=[ [sum(self.weights.get_value(str(tag)+feature,0) for feature in features) 
+        emissions = [ [sum(self.weights.get_value(str(tag)+feature,0) for feature in features) 
             for tag in range(4) ] for features in self.gen_features(x)]
 
-        # wk_debug
-        #print('sentence:', x)
-
         # 类似隐马模型中的前向概率
-        alphas=[[[e,None] for e in emissions[0]]]
+        alphas = [[[e,None] for e in emissions[0]]]
         for i in range(len(x)-1) :
             alphas.append([max([alphas[i][j][0]+transitions[j][k]+emissions[i+1][k],j]
                                         for j in range(4))
@@ -215,6 +220,26 @@ class CWS :
             i-=1
             alpha=alphas[i][alpha[1]]
         return list(reversed(tags))
+
+    def verbose(self, x):
+        d = {0: 'B:', 1: 'M:', 2: 'E:', 3: 'S:'}
+        emissions = [ [sum(self.weights.get_value(str(tag)+feature,0) for feature in features) 
+            for tag in range(4) ] for features in self.gen_features(x)]
+
+        for tag in range(4):
+            print(d[tag], end=' ')
+            for i in range(len(x)):
+                value = emissions[i][tag]
+                print('{:8.2f}'.format(value), end=' ')
+            print()
+
+        print('-')
+        for tag in range(4):
+            print(d[tag], end=' ')
+            for w in x:
+                value = self.weights.get_value(str(tag) + '8B_' + w + '2', 0)
+                print('{:8.2f}'.format(value), end=' ')
+            print()
 
 def load_example(words): # 词数组，得到x，y
     y=[]
@@ -269,6 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--result',type=str, help='')
     parser.add_argument('--model',type=str, help='')
     parser.add_argument('--dict',type=str, help='')
+    parser.add_argument('--verbose',type=str, help='')
     args = parser.parse_args()
 
     # 训练
@@ -342,3 +368,5 @@ if __name__ == '__main__':
             x,y=load_example(sent.split())
             z=cws.decode(x)
             print(' '.join(dump_example(x,z)),file=outstream)
+            if args.verbose:
+                cws.verbose(sent)
