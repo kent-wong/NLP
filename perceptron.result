@@ -1,0 +1,26 @@
+训练：
+python cws.py --train sighan_corpora\training\pku_training.utf8 --model perceptron.model
+
+测试：
+python cws.py --test sighan_corpora\gold\pku_test_gold.utf8 --model perceptron.model
+
+
+感知器算法中参数的三种处理方法：
+1、average per iteration:
+历时: 5.50秒 答案词数: 104372 结果词数: 101608 正确词数: 94706
+准确率：0.9321 召回率：0.9074 F值: 0.9196
+
+2、average at end:
+历时: 5.49秒 答案词数: 104372 结果词数: 101625 正确词数: 95255
+准确率：0.9373 召回率：0.9126 F值: 0.9248
+
+3、structured perceptron
+
+增加模版：
+	增加了模版[-2], [+2], [-1, 0, +1]后测试结果如下：
+历时: 6.91秒 答案词数: 104372 结果词数: 101736 正确词数: 95258
+准确率：0.9363 召回率：0.9127 F值: 0.9244
+
+融入词典：
+1、正向匹配，用一个特征表明当前字为词典中的某个词的首字
+	特征为：当前字+最大正向匹配长度
