@@ -101,7 +101,7 @@ class Weights(dict): # 管理平均感知器的权重
         with open(filename, 'r', encoding='utf-8') as f:
             for word in f.readlines():
                 word = word.strip()
-                if word == '':
+                if len(word) <= 1:
                     continue
 
                 # 正向
@@ -175,10 +175,11 @@ class CWS :
                 features.append('8B_' + mid + str(matched))
                 #print(matched, x[i: i+matched])
 
-            #r_matched = self.weights.reverse_max_match(x[:i+1])
-            #if r_matched > 1:
-                #features.append('8E_' + str(r_matched))
-                #print(r_matched, x[i-r_matched: i+1])
+            r_matched = self.weights.reverse_max_match(x[:i+1])
+            if r_matched > 1:
+                features.append('8E_' + mid + str(r_matched))
+                #print(r_matched, x[i-r_matched+1: i+1])
+
             yield features
 
     def update(self,x,y,delta): # 更新权重
