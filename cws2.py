@@ -116,8 +116,6 @@ class Weights(dict): # 管理平均感知器的权重
         return matched
 
 
-
-
 class CWS :
     def __init__(self, words_list=None):
         self.weights=Weights()
@@ -158,6 +156,14 @@ class CWS :
             features=['1'+mid,'2'+left1,'3'+right1,
                     '4'+left2+left1,'5'+left1+mid,'6'+mid+right1,'7'+right1+right2]
                     #'9L_'+ct_left1, '9M_'+ct_mid, '9R_'+ct_right1]
+
+            if mid == left1:
+                features.append('8D_1')
+                #print(x[i-1:i+1])
+
+            if mid == left2:
+                features.append('8D_2')
+                #print(x[i-2:i+1])
 
             #if mid+right1 in self.weights._words:
                 #features.append('8B_' + mid + right1)
