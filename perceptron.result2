@@ -29,10 +29,21 @@ python cws.py --test sighan_corpora\gold\pku_test_gold.utf8 --model perceptron.m
 	历时: 6.88秒 答案词数: 104372 结果词数: 102765 正确词数: 96529
 	准确率：0.9393 召回率：0.9249 F值: 0.9320
 
+
 **PKU Dataset:
 1. Average Perceptron:
 pku nodict:
+	历时: 6.29秒 答案词数: 104372 结果词数: 101548 正确词数: 95025
+	准确率：0.9358 召回率：0.9104 F值: 0.9229
 
+pku nodict with dual words:
+	历时: 6.30秒 答案词数: 104372 结果词数: 101702 正确词数: 95116
+	准确率：0.9352 召回率：0.9113 F值: 0.9231
+
+
+pku with dict:
+	历时: 7.12秒 答案词数: 104372 结果词数: 102765 正确词数: 96529
+	准确率：0.9393 召回率：0.9249 F值: 0.9320
 
 2. crf++:
 === TOTAL TRUE WORDS RECALL:    0.926
@@ -43,6 +54,24 @@ pku nodict:
 === TOTAL TRUE WORDS RECALL:    0.786
 === TOTAL TEST WORDS PRECISION: 0.853
 === F MEASURE:  0.819
+
+4.LTP
+PA algorithm nodict:
+	[INFO] 2018-10-27 23:55:39 P: 0.928472 ( 97003 / 104476 )
+	[INFO] 2018-10-27 23:55:39 R: 0.929397 ( 97003 / 104372 )
+	[INFO] 2018-10-27 23:55:39 F: 0.928934
+
+PA algorithm with dict as decoding:
+	[INFO] 2018-10-27 23:59:04 P: 0.928472 ( 97003 / 104476 )
+	[INFO] 2018-10-27 23:59:04 R: 0.929397 ( 97003 / 104372 )
+	[INFO] 2018-10-27 23:59:04 F: 0.928934
+
+using AP algorithm:
+	[INFO] 2018-10-28 00:33:34 P: 0.915479 ( 96280 / 105169 )
+	[INFO] 2018-10-28 00:33:34 R: 0.922470 ( 96280 / 104372 )
+	[INFO] 2018-10-28 00:33:34 F: 0.918961
+
+
 
 **MSR Dataset:
 1. Average Perceptron:
@@ -64,6 +93,25 @@ msr crf++(no dict):
 	准确率：0.9647 召回率：0.9610 F值: 0.9629
 
 
+3. LTP
+PA algorithm no dict:
+	[INFO] 2018-10-28 00:51:52 P: 0.939512 ( 100943 / 107442 )
+	[INFO] 2018-10-28 00:51:52 R: 0.944514 ( 100943 / 106873 )
+	[INFO] 2018-10-28 00:51:52 F: 0.942006
+
+	sighan score:
+	=== TOTAL TRUE WORDS RECALL:    0.945
+	=== TOTAL TEST WORDS PRECISION: 0.940
+	=== F MEASURE:  0.942
+
+AP algorithm no dict:
+	[INFO] 2018-10-28 01:15:14 P: 0.933742 ( 100493 / 107624 )
+	[INFO] 2018-10-28 01:15:14 R: 0.940303 ( 100493 / 106873 )
+	[INFO] 2018-10-28 01:15:14 F: 0.937011
+
+
+
+
 size of model:
 -rw-rw-r--. 1 keke keke 71726240 10月 27 20:08 msr_crfpp.model
 -rw-rw-r--. 1 keke keke 45540397 10月 27 15:18 perceptron_msr.model
@@ -71,3 +119,4 @@ size of model:
 -rw-rw-r--. 1 keke keke 61133794 10月 27 13:49 perceptron_msr_nodict.model
 -rw-rw-r--. 1 keke keke 28324219 10月 27 12:50 perceptron_pku.model
 -rw-rw-r--. 1 keke keke 37596960 10月 27 13:06 perceptron_pku_nodict.model
+
