@@ -16,6 +16,7 @@ class Weights(dict): # 管理平均感知器的权重
         self._log_p=math.log(self._p)
         self._words = dict()
         self._rwords = dict()
+        self._mwords = dict()
 
 
         self._acc=dict()
@@ -119,6 +120,12 @@ class Weights(dict): # 管理平均感知器的权重
                     if make_word not in self._rwords:
                         self._rwords[make_word] = 0
                 self._rwords[word] = 1
+
+                # middle
+                while len(word) >= 3:
+                    self._mwords[word[:3]] = 0
+                    word = word[1:]
+
                 
     def max_match(self, sub):
         matched = 0
@@ -152,7 +159,8 @@ class CWS :
         # 载入词典
         if words_list:
             self.weights.merge_dict(words_list)
-            print(self.weights._words)
+            print('dict loaded')
+            #print(self.weights._words)
             #matched = self.weights.max_match('前景是光明的')
             #print(matched)
 
@@ -170,21 +178,27 @@ class CWS :
             features=['1'+mid,'2'+left1,'3'+right1,
                     '4'+left2+left1,'5'+left1+mid,'6'+mid+right1,'7'+right1+right2]
 
-            if mid+right1 in self.weights._words:
-                features.append('8B_' + mid + right1)
+            #if mid+right1 in self.weights._words:
+                #features.append('8B_' + mid + right1)
+                #print(mid+right1)
 
-            if mid+left1 in self.weights._rwords:
-                features.append('8E_' + mid + left1)
+            #if left1+mid in self.weights._rwords:
+                #features.append('8E_' + left1 + mid)
+                #print(left1+mid)
 
-            #matched = self.weights.max_match(x[i:])
-            #if matched > 1:
-                #features.append('8B_' + mid + str(matched))
-                #features.append('8B_' + mid + right1 + str(matched))
+            #if left1+mid+right1 in self.weights._mwords:
+                #features.append('8M_' + left1 + mid + right1)
+                #print(left1+mid+right1)
+
+
+            matched = self.weights.max_match(x[i:])
+            if matched > 1:
+                features.append('8B_' + mid + str(matched))
                 #print(matched, x[i: i+matched])
 
-            #r_matched = self.weights.reverse_max_match(x[:i+1])
-            #if r_matched > 1:
-                #features.append('8E_' + mid + str(r_matched))
+            r_matched = self.weights.reverse_max_match(x[:i+1])
+            if r_matched > 1:
+                features.append('8E_' + mid + str(r_matched))
                 #print(r_matched, x[i-r_matched+1: i+1])
 
             yield features
