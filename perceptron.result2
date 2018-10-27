@@ -1,0 +1,73 @@
+训练：
+python cws.py --train sighan_corpora\training\pku_training.utf8 --model perceptron.model
+
+测试：
+python cws.py --test sighan_corpora\gold\pku_test_gold.utf8 --model perceptron.model
+
+
+感知器算法中参数的三种处理方法：
+1、average per iteration:
+历时: 5.50秒 答案词数: 104372 结果词数: 101608 正确词数: 94706
+准确率：0.9321 召回率：0.9074 F值: 0.9196
+
+2、average at end:
+历时: 5.49秒 答案词数: 104372 结果词数: 101625 正确词数: 95255
+准确率：0.9373 召回率：0.9126 F值: 0.9248
+
+
+增加模版：
+	增加了模版[-2], [+2], [-1, 0, +1]后测试结果如下：
+历时: 6.91秒 答案词数: 104372 结果词数: 101736 正确词数: 95258
+准确率：0.9363 召回率：0.9127 F值: 0.9244
+
+融入词典：
+1、正向匹配，用一个特征表明当前字为词典中的某个词的首字
+	特征为：当前字+最大正向匹配长度
+
+
+2, bidirectional max match
+	历时: 6.88秒 答案词数: 104372 结果词数: 102765 正确词数: 96529
+	准确率：0.9393 召回率：0.9249 F值: 0.9320
+
+**PKU Dataset:
+1. Average Perceptron:
+pku nodict:
+
+
+2. crf++:
+=== TOTAL TRUE WORDS RECALL:    0.926
+=== TOTAL TEST WORDS PRECISION: 0.942
+=== F MEASURE:  0.934
+
+3. jieba:
+=== TOTAL TRUE WORDS RECALL:    0.786
+=== TOTAL TEST WORDS PRECISION: 0.853
+=== F MEASURE:  0.819
+
+**MSR Dataset:
+1. Average Perceptron:
+msr nodict:
+	历时: 7.11秒 答案词数: 106873 结果词数: 106534 正确词数: 102307
+	准确率：0.9603 召回率：0.9573 F值: 0.9588
+
+msr nodict 10 features(added 3 'char type' features):
+	历时: 8.09秒 答案词数: 106873 结果词数: 106430 正确词数: 101471
+	准确率：0.9534 召回率：0.9495 F值: 0.9514
+
+msr with dict(bidirectional max match):
+	历时: 7.95秒 答案词数: 106873 结果词数: 107871 正确词数: 103790
+	准确率：0.9622 召回率：0.9712 F值: 0.9666
+
+2. crf++:
+msr crf++(no dict):
+	历时: 0.23秒 答案词数: 106873 结果词数: 106461 正确词数: 102707
+	准确率：0.9647 召回率：0.9610 F值: 0.9629
+
+
+size of model:
+-rw-rw-r--. 1 keke keke 71726240 10月 27 20:08 msr_crfpp.model
+-rw-rw-r--. 1 keke keke 45540397 10月 27 15:18 perceptron_msr.model
+-rw-rw-r--. 1 keke keke 69365597 10月 27 14:39 perceptron_msr_nodict_10features.model
+-rw-rw-r--. 1 keke keke 61133794 10月 27 13:49 perceptron_msr_nodict.model
+-rw-rw-r--. 1 keke keke 28324219 10月 27 12:50 perceptron_pku.model
+-rw-rw-r--. 1 keke keke 37596960 10月 27 13:06 perceptron_pku_nodict.model
