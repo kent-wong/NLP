@@ -1,6 +1,4 @@
 import os
-import re
-import jieba
 
 class Dataset:
     def __init__(self):
@@ -132,33 +130,3 @@ class Dataset:
 
             if sent_str != '':
                 self._data.append((sent_str, gold_str, pred_str))
-
-
-
-
-#a = Dataset('pku_training.utf8')
-#for sent in a.data():
-#    print(sent)
-
-
-#a = Dataset('pku_training.utf8')
-for i in range(5):
-    print()
-    #print(a[i])
-    
-#print(a[0:5])
-
-#a.output_crfpp_format('pku_crf_train.txt')
-#a.output_crfpp_format()
-
-#a.pprint(0)
-
-test_data = Dataset()
-#test_data.read('./sighan_corpora/gold/pku_test_gold.utf8')
-test_data.read_crfpp_result('crf_out.txt')
-test_data.pprint(0)
-test_data.pprint(1)
-test_data.pprint(2)
-print('len:', len(test_data))
-#test_data.output_crfpp_format('pku_test.txt')
-test_data.output('pku_predict_result.txt')
