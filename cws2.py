@@ -7,16 +7,16 @@ import math
 
 class Weights(dict): # 管理平均感知器的权重
     def __init__(self):
-        self._values=dict()
-        self._last_step=dict()
-        self._step=0
+        self._values = dict()
+        self._last_step = dict()
+        self._step = 0
 
         self._usedict = False
         self._words = dict()
         self._rwords = dict()
         self._mwords = dict()
 
-        self._acc=dict()
+        self._acc = dict()
 
     def _new_value(self, key):
         dstep = self._step-self._last_step[key]
@@ -301,6 +301,7 @@ if __name__ == '__main__':
     parser.add_argument('--verbose',type=str, help='')
     parser.add_argument('--score', type=str, help='')
     parser.add_argument('--ref', type=str, help='')
+    parser.add_argument('--stats', help='show statistics info about model', action='store_true')
     args = parser.parse_args()
 
     # 训练
@@ -384,8 +385,52 @@ if __name__ == '__main__':
                 break
         evaluator.report()
 
+    if args.stats:
+        if args.model:
+            cws_stats = CWS(words_list=args.dict)
+            cws_stats.weights.load(args.model)
+
+            total_weights = len(cws_stats.weights._values)
+            weight_class = (0.001, 0.01, 0.1, 0.5, 1, 10, 100)
+            class_stats = {}
+            for n in weight_class:
+                class_stats[n] = 0
+            class_stats[-1] = 0
+
+            for k, v in cws_stats.weights._values.items():
+                v = abs(v)
+                for n in weight_class:
+                    if v < n:
+                        class_stats[n] += 1
+                        break
+                else:
+                    class_stats[-1] += 1
+
+
+            print('*statistics info*:')
+            print('total weights:', total_weights)
+            print('weights distribution:')
+            others = 0
+            prev = -1
+            for k, v in sorted(class_stats.items()):
+                if k == -1:
+                    others = v
+                else:
+                    if prev == -1:
+                        prev = 0
+                    print('{:6}  - {:6}:   {} ({:.2f}%)'.format(prev, k, v, v*100/(total_weights+0.000001)))
+                prev = k
+            print('{:6}  - {:6}:   {} ({:.2f}%)'.format(weight_class[-1], '', others, others*100/(total_weights+0.000001)))
+
+            if cws_stats.weights._usedict:
+                print('user dict info:')
+                for k, v in cws_stats.weights._words.items():
+                    print(k, v)
+        else:
+            print('MUST specify `--model` option')
+
     # 对未分词的句子输出分词结果
-    if args.model and (not args.train and not args.test) : 
+    if args.model and (not args.train and not args.test and not args.stats) : 
         cws=CWS(words_list=args.dict)
         cws.weights.load(args.model)
         instream=open(args.predict, encoding='utf-8') if args.predict else sys.stdin
