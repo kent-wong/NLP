@@ -298,7 +298,7 @@ if __name__ == '__main__':
     parser.add_argument('--result', type=str, help='')
     parser.add_argument('--model', type=str, help='')
     parser.add_argument('--dict', type=str, help='')
-    parser.add_argument('--verbose',type=str, help='')
+    parser.add_argument('--verbose', help='', action='store_true')
     parser.add_argument('--score', type=str, help='')
     parser.add_argument('--ref', type=str, help='')
     parser.add_argument('--stats', help='show statistics info about model', action='store_true')
@@ -441,6 +441,6 @@ if __name__ == '__main__':
                 continue
             x,y=load_example(sent.split())
             z=cws.decode(x)
-            print(' '.join(dump_example(x,z)),file=outstream)
+            print(' / '.join(dump_example(x,z)),file=outstream)
             if args.verbose:
                 cws.verbose(sent)
