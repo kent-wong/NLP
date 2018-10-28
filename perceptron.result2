@@ -71,6 +71,22 @@ using AP algorithm:
 	[INFO] 2018-10-28 00:33:34 R: 0.922470 ( 96280 / 104372 )
 	[INFO] 2018-10-28 00:33:34 F: 0.918961
 
+5. foolNLTK
+             precision    recall  f1-score   support
+
+          0       0.95      0.94      0.94     56869
+          1       0.95      0.93      0.94     56869
+          2       0.92      0.92      0.92     47476
+          3       0.74      0.82      0.78     11470
+
+avg / total       0.93      0.92      0.93    172684
+
+test accc 0.924741
+
+size of model:
+(nlp) [keke@localhost train]$ ll results/pku_seg/modle.pb 
+-rw-rw-r--. 1 keke keke 2211363 10月 28 19:53 results/pku_seg/modle.pb
+
 
 
 **MSR Dataset:
