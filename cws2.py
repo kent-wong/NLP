@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+# !/usr/bin/python3
 import argparse
 import sys
 import json
@@ -87,9 +87,9 @@ class Weights(dict): # 管理平均感知器的权重
                 self._rwords[word] = 1
 
                 # middle
-                while len(word) >= 3:
-                    self._mwords[word[:3]] = 0
-                    word = word[1:]
+                #while len(word) >= 3:
+                    #self._mwords[word[:3]] = 0
+                    #word = word[1:]
 
                 
     def max_match(self, sub):
@@ -148,21 +148,22 @@ class CWS :
             right1 = x[i+1] if i+1<len(x) else '#'
             right2 = x[i+2] if i+2<len(x) else '#'
             #right3=x[i+3] if i+3<len(x) else '#'
-            #triple = left1 + mid + right1
+            triple = left1 + mid + right1
             ct_left1 = self.get_char_type(left1) if i-1 >= 0 else '#'
             ct_mid = self.get_char_type(mid)
             ct_right1 = self.get_char_type(right1) if i+1<len(x) else '#'
 
-            features=['1'+mid,'2'+left1,'3'+right1,
-                    '4'+left2+left1,'5'+left1+mid,'6'+mid+right1,'7'+right1+right2]
+            features = ['1'+mid, '2'+left1, '3'+right1,
+                        '4'+left2+left1, '5'+left1+mid, '6'+mid+right1, '7'+right1+right2,
+                        '0_T' + triple]
                     #'9L_'+ct_left1, '9M_'+ct_mid, '9R_'+ct_right1]
 
-            if mid == left1:
-                features.append('8D_1')
+            #if mid == left1:
+                #features.append('8D_1')
                 #print(x[i-1:i+1])
 
-            if mid == left2:
-                features.append('8D_2')
+            #if mid == left2:
+                #features.append('8D_2')
                 #print(x[i-2:i+1])
 
             #if mid+right1 in self.weights._words:
@@ -198,7 +199,7 @@ class CWS :
         for i in range(len(x)-1):
             self.weights.update_weights(str(y[i])+':'+str(y[i+1]), delta)
 
-    def decode(self,x): # 类似隐马模型的动态规划解码算法
+    def decode(self, x, force=None): # 类似隐马模型的动态规划解码算法
         # 类似隐马模型中的转移概率
         transitions = [ [self.weights.get_value(str(i)+':'+str(j),0) for j in range(4)]
                 for i in range(4) ]
@@ -206,6 +207,38 @@ class CWS :
         # 类似隐马模型中的发射概率
         emissions = [ [sum(self.weights.get_value(str(tag)+feature,0) for feature in features) 
             for tag in range(4) ] for features in self.gen_features(x)]
+
+        # 使用词典强制解码
+        if force == 1 and self.weights._usedict:
+            force_matrix = [ [0]*4 for ch in x]
+            i = 0
+            while i < len(x):
+                matched = self.weights.max_match(x[i:])
+                if matched >= 2:
+                    #print('forward max match at {} is {} length'.format(i, matched)) # debug
+                    force_matrix[i][0] = 1000000
+                    force_matrix[i+matched-1][2] = 1000000
+                    for m in range(i+1, i+matched-1):
+                        force_matrix[m][1] = 1000000
+                    i += matched
+                else:
+                    i += 1
+
+            # 强制增加分数
+            for row in range(len(x)):
+                for col in range(4):
+                    emissions[row][col] += force_matrix[row][col]
+
+                #r_matched = self.weights.reverse_max_match(x[:i+1])
+                #if r_matched > 1:
+                    #force_matrix[i][2] = 1000000
+                    #force_matrix[i-r_matched+1][0] = 1000000
+                    #if r_matched > 2:
+                        #force_matrix[i-r_matched+2: i][1] = 1000000
+            # debug
+            #for i in range(len(x)):
+                #print(x[i], ':', force_matrix[i])
+
 
         # 类似隐马模型中的前向概率
         alphas = [[[e,None] for e in emissions[0]]]
@@ -221,7 +254,53 @@ class CWS :
             tags.append(alpha[1])
             i-=1
             alpha=alphas[i][alpha[1]]
-        return list(reversed(tags))
+
+        labels = list(reversed(tags))
+
+        # 使用词典建议解码
+        if force == 2 and self.weights._usedict:
+            #print('origin:   ', labels) # debug
+            i = 0
+            while i < len(x):
+                matched = self.weights.max_match(x[i:])
+                if matched <= 3:
+                    i += 1
+                    continue
+
+                # 将几个相邻的词组成一个词，提高准确率
+                if (labels[i] == 0 or labels[i] == 3) and (labels[i+matched-1] == 2 or labels[i+matched-1] == 3):
+                    labels[i] = 0
+                    labels[i+matched-1] = 2
+                    for idx in range(i+1, i+matched-1):
+                        labels[idx] = 1
+                # 将长词切断，提高召回率
+                #elif labels[i] == 0:
+                #    for ii in range(i+1, i+matched):
+                #        if labels[ii] != 1:
+                #            break
+                #    else:
+                #        labels[i+matched-1] = 2
+                #        if labels[i+matched] == 1:
+                #            labels[i+matched] = 0
+                #        else:
+                #            labels[i+matched] = 3
+                #elif labels[i+matched-1] == 2:
+                    #for ii in range(i, i+matched-1):
+                    #    if labels[ii] != 1:
+                    #        break
+                    #else:
+                    #    labels[i] = 0
+                    #    if labels[i-1] == 1:
+                    #        labels[i-1] = 2
+                    #    else:
+                    #        labels[i-1] = 3
+
+                i += matched
+
+            #print('suggested:', labels) # debug
+
+
+        return labels
 
     def verbose(self, x):
         d = {0: 'B:', 1: 'M:', 2: 'E:', 3: 'S:'}
@@ -302,6 +381,7 @@ if __name__ == '__main__':
     parser.add_argument('--score', type=str, help='')
     parser.add_argument('--ref', type=str, help='')
     parser.add_argument('--stats', help='show statistics info about model', action='store_true')
+    parser.add_argument('--force', type=int, help='')
     args = parser.parse_args()
 
     # 训练
@@ -324,7 +404,7 @@ if __name__ == '__main__':
                     cws.update(x,y,1)
                     cws.update(x,z,-1)
 
-                # wk_debug
+                # debug
                 lines += 1
                 if lines % 2000 == 0:
                     print('trained sentences {}'.format(lines))
@@ -351,16 +431,16 @@ if __name__ == '__main__':
 
     # 使用有正确答案的语料测试
     if args.test : 
-        cws=CWS(words_list=args.dict)
+        cws = CWS(words_list=args.dict)
         cws.weights.load(args.model)
-        evaluator=Evaluator()
+        evaluator = Evaluator()
         for sent in open(args.test, encoding='utf-8') :
             sent = sent.strip()
             if sent == '':
                 continue
-            x,y=load_example(sent.split())
-            z=cws.decode(x)
-            evaluator(dump_example(x,y),dump_example(x,z))
+            x,y = load_example(sent.split())
+            z = cws.decode(x, force=args.force)
+            evaluator(dump_example(x, y), dump_example(x, z))
         evaluator.report()
 
     if args.score and args.ref: 
@@ -440,7 +520,7 @@ if __name__ == '__main__':
             if sent == '':
                 continue
             x,y=load_example(sent.split())
-            z=cws.decode(x)
+            z=cws.decode(x, force=args.force)
             print(' / '.join(dump_example(x,z)),file=outstream)
             if args.verbose:
                 cws.verbose(sent)
