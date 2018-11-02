@@ -382,6 +382,8 @@ if __name__ == '__main__':
     parser.add_argument('--ref', type=str, help='')
     parser.add_argument('--stats', help='show statistics info about model', action='store_true')
     parser.add_argument('--force', type=int, help='')
+    parser.add_argument('--reduce', type=str, help='specify new reduced model name')
+    parser.add_argument('--below', type=int, help='')
     args = parser.parse_args()
 
     # 训练
@@ -508,6 +510,34 @@ if __name__ == '__main__':
                     print(k, v)
         else:
             print('MUST specify `--model` option')
+
+    if args.reduce:
+        if not args.model:
+            print('MUST specify `--model` option')
+            sys.exit(1)
+        if args.below is None:
+            print('MUST specify `--below` option')
+            sys.exit(1)
+        if args.below <= 0:
+            print('`below` must be > 0')
+            sys.exit(1)
+
+        cws_reduced = CWS()
+        cws_reduced.weights.load(args.model)
+
+        total_weights = len(cws_reduced.weights._values)
+
+        temp = dict(cws_reduced.weights._values)
+        #weights_list = sorted(cws_reduced.weights._values.items(), key=lambda x: abs(x[1]))
+        for k, v in temp.items():
+            if abs(v) < args.below:
+                del cws_reduced.weights._values[k]
+
+        cws_reduced.weights.save(args.reduce)
+
+        print('number of weights before reduce:', total_weights)
+        print('after:', len(cws_reduced.weights._values))
+        sys.exit(0)
 
     # 对未分词的句子输出分词结果
     if args.model and (not args.train and not args.test and not args.stats) : 
