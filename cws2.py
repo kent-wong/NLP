@@ -3,7 +3,6 @@ import argparse
 import sys
 import json
 import time
-import math
 
 class Weights(dict): # 管理平均感知器的权重
     def __init__(self):
@@ -13,8 +12,6 @@ class Weights(dict): # 管理平均感知器的权重
 
         self._usedict = False
         self._words = dict()
-        self._rwords = dict()
-        self._mwords = dict()
 
         self._acc = dict()
 
@@ -44,20 +41,25 @@ class Weights(dict): # 管理平均感知器的权重
         self._backup=dict(self._values)
         for k,v in self._acc.items():
             self._values[k]=self._acc[k]/self._step
+
     def unaverage(self): 
         self._values=dict(self._backup)
         self._backup.clear()
+
     def save(self,filename):
         json.dump({k:v for k,v in self._values.items() if v!=0.0},
                 open(filename,'w', encoding='utf-8'),
                 ensure_ascii=False,indent=1)
+
     def load(self,filename):
         self._values.update(json.load(open(filename, encoding='utf-8')))
-        self._last_step=None
+        self._last_step = None
     
-    def get_value(self,key,default):
-        if key not in self._values : return default
-        if self._last_step==None : return self._values[key]
+    def get_value(self, key, default):
+        if key not in self._values:
+            return default
+        if self._last_step is None:
+            return self._values[key]
         return self._new_value(key)
 
     # 融入词典
@@ -78,19 +80,6 @@ class Weights(dict): # 管理平均感知器的权重
                         self._words[make_word] = 0
                 self._words[word] = 1
 
-                # 反向
-                make_word = ''
-                for w in reversed(word):
-                    make_word = w + make_word
-                    if make_word not in self._rwords:
-                        self._rwords[make_word] = 0
-                self._rwords[word] = 1
-
-                # middle
-                #while len(word) >= 3:
-                    #self._mwords[word[:3]] = 0
-                    #word = word[1:]
-
                 
     def max_match(self, sub):
         matched = 0
@@ -99,18 +88,6 @@ class Weights(dict): # 管理平均感知器的权重
             if w in self._words:
                 if self._words[w] == 1:
                     matched = len(w)
-            else:
-                break
-        return matched
-
-    def reverse_max_match(self, sub):
-        matched = 0
-        make_word = ''
-        for w in reversed(sub):
-            make_word = w + make_word
-            if make_word in self._rwords:
-                if self._rwords[make_word] == 1:
-                    matched = len(make_word)
             else:
                 break
         return matched
@@ -128,17 +105,6 @@ class CWS :
             #print(matched)
 
 
-    def get_char_type(self, c):
-        digit = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-        punct = ['（', '）', '、', '，', '。', '！', '“', '—', '《', '》', '；', '\’', '：', '』']
-
-        if c in digit:
-            return 'D' # digit
-        elif c in punct:
-            return 'P' # punctuation
-        else:
-            return 'N' # normal character
-
     def gen_features(self,x): # 枚举得到每个字的特征向量
         for i in range(len(x)):
             #left3=x[i-3] if i-3 >=0 else '#'
@@ -149,46 +115,10 @@ class CWS :
             right2 = x[i+2] if i+2<len(x) else '#'
             #right3=x[i+3] if i+3<len(x) else '#'
             triple = left1 + mid + right1
-            ct_left1 = self.get_char_type(left1) if i-1 >= 0 else '#'
-            ct_mid = self.get_char_type(mid)
-            ct_right1 = self.get_char_type(right1) if i+1<len(x) else '#'
 
             features = ['1'+mid, '2'+left1, '3'+right1,
                         '4'+left2+left1, '5'+left1+mid, '6'+mid+right1, '7'+right1+right2,
                         '0_T' + triple]
-                    #'9L_'+ct_left1, '9M_'+ct_mid, '9R_'+ct_right1]
-
-            #if mid == left1:
-                #features.append('8D_1')
-                #print(x[i-1:i+1])
-
-            #if mid == left2:
-                #features.append('8D_2')
-                #print(x[i-2:i+1])
-
-            #if mid+right1 in self.weights._words:
-                #features.append('8B_' + mid + right1)
-                #print(mid+right1)
-
-            #if left1+mid in self.weights._rwords:
-                #features.append('8E_' + left1 + mid)
-                #print(left1+mid)
-
-            #if left1+mid+right1 in self.weights._mwords:
-                #features.append('8M_' + left1 + mid + right1)
-                #print(left1+mid+right1)
-
-
-            if self.weights._usedict:
-                matched = self.weights.max_match(x[i:])
-                if matched > 1:
-                    features.append('8B_' + mid + str(matched))
-                    #print(matched, x[i: i+matched])
-
-                r_matched = self.weights.reverse_max_match(x[:i+1])
-                if r_matched > 1:
-                    features.append('8E_' + mid + str(r_matched))
-                    #print(r_matched, x[i-r_matched+1: i+1])
 
             yield features
 
@@ -199,7 +129,7 @@ class CWS :
         for i in range(len(x)-1):
             self.weights.update_weights(str(y[i])+':'+str(y[i+1]), delta)
 
-    def decode(self, x, force=None): # 类似隐马模型的动态规划解码算法
+    def decode(self, x): # 类似隐马模型的动态规划解码算法
         # 类似隐马模型中的转移概率
         transitions = [ [self.weights.get_value(str(i)+':'+str(j),0) for j in range(4)]
                 for i in range(4) ]
@@ -207,37 +137,6 @@ class CWS :
         # 类似隐马模型中的发射概率
         emissions = [ [sum(self.weights.get_value(str(tag)+feature,0) for feature in features) 
             for tag in range(4) ] for features in self.gen_features(x)]
-
-        # 使用词典强制解码
-        if force == 1 and self.weights._usedict:
-            force_matrix = [ [0]*4 for ch in x]
-            i = 0
-            while i < len(x):
-                matched = self.weights.max_match(x[i:])
-                if matched >= 2:
-                    #print('forward max match at {} is {} length'.format(i, matched)) # debug
-                    force_matrix[i][0] = 1000000
-                    force_matrix[i+matched-1][2] = 1000000
-                    for m in range(i+1, i+matched-1):
-                        force_matrix[m][1] = 1000000
-                    i += matched
-                else:
-                    i += 1
-
-            # 强制增加分数
-            for row in range(len(x)):
-                for col in range(4):
-                    emissions[row][col] += force_matrix[row][col]
-
-                #r_matched = self.weights.reverse_max_match(x[:i+1])
-                #if r_matched > 1:
-                    #force_matrix[i][2] = 1000000
-                    #force_matrix[i-r_matched+1][0] = 1000000
-                    #if r_matched > 2:
-                        #force_matrix[i-r_matched+2: i][1] = 1000000
-            # debug
-            #for i in range(len(x)):
-                #print(x[i], ':', force_matrix[i])
 
 
         # 类似隐马模型中的前向概率
@@ -258,7 +157,7 @@ class CWS :
         labels = list(reversed(tags))
 
         # 使用词典建议解码
-        if force == 2 and self.weights._usedict:
+        if self.weights._usedict:
             #print('origin:   ', labels) # debug
             i = 0
             while i < len(x):
@@ -381,7 +280,6 @@ if __name__ == '__main__':
     parser.add_argument('--score', type=str, help='')
     parser.add_argument('--ref', type=str, help='')
     parser.add_argument('--stats', help='show statistics info about model', action='store_true')
-    parser.add_argument('--force', type=int, help='')
     parser.add_argument('--reduce', type=str, help='specify new reduced model name')
     parser.add_argument('--below', type=int, help='')
     args = parser.parse_args()
@@ -423,7 +321,7 @@ if __name__ == '__main__':
                         continue
                     x,y=load_example(sent.split())
                     z=cws.decode(x)
-                    evaluator(dump_example(x,y),dump_example(x,z))
+                    evaluator(dump_example(x, y), dump_example(x,z))
                 evaluator.report()
             #cws.weights.unaverage()
 
@@ -441,7 +339,7 @@ if __name__ == '__main__':
             if sent == '':
                 continue
             x,y = load_example(sent.split())
-            z = cws.decode(x, force=args.force)
+            z = cws.decode(x)
             evaluator(dump_example(x, y), dump_example(x, z))
         evaluator.report()
 
@@ -541,16 +439,16 @@ if __name__ == '__main__':
 
     # 对未分词的句子输出分词结果
     if args.model and (not args.train and not args.test and not args.stats) : 
-        cws=CWS(words_list=args.dict)
+        cws = CWS(words_list=args.dict)
         cws.weights.load(args.model)
-        instream=open(args.predict, encoding='utf-8') if args.predict else sys.stdin
-        outstream=open(args.result,'w', encoding='utf-8') if args.result else sys.stdout
+        instream = open(args.predict, encoding='utf-8') if args.predict else sys.stdin
+        outstream = open(args.result,'w', encoding='utf-8') if args.result else sys.stdout
         for sent in instream:
             sent = sent.strip()
             if sent == '':
                 continue
-            x,y=load_example(sent.split())
-            z=cws.decode(x, force=args.force)
-            print(' / '.join(dump_example(x,z)),file=outstream)
+            x, y = load_example(sent.split())
+            z = cws.decode(x)
+            print(' / '.join(dump_example(x, z)), file=outstream)
             if args.verbose:
                 cws.verbose(sent)
